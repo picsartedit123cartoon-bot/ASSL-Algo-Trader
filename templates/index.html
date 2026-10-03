@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SLSVRP</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f2f4f7;
+    color: #111827;
+}
+
+header {
+    background: #111827;
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.subtitle {
+    margin-top: 6px;
+    color: #cbd5e1;
+}
+
+main {
+    max-width: 1000px;
+    margin: auto;
+    padding: 15px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.card {
+    background: white;
+    border-radius: 15px;
+    padding: 18px;
+    margin-top: 12px;
+    box-shadow: 0 2px 8px #00000015;
+}
+
+.label {
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.value {
+    font-size: 25px;
+    font-weight: bold;
+    margin-top: 7px;
+}
+
+.paper {
+    color: #15803d;
+    font-weight: bold;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+button {
+    width: 100%;
+    padding: 13px;
+    margin-top: 15px;
+    border: 0;
+    border-radius: 10px;
+    background: #111827;
+    color: white;
+    font-size: 16px;
+}
+
+@media (min-width: 700px) {
+    .grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>SLSVRP</h1>
+    <div class="subtitle">Algo Trading Dashboard</div>
+</header>
+
+<main>
+
+<div class="grid">
+
+<div class="card">
+    <div class="label">Market Signal</div>
+    <div id="state" class="value">WAIT</div>
+</div>
+
+<div class="card">
+    <div class="label">Last Price</div>
+    <div id="price" class="value">—</div>
+</div>
+
+<div class="card">
+    <div class="label">RSI</div>
+    <div id="rsi" class="value">—</div>
+</div>
+
+<div class="card">
+    <div class="label">Score</div>
+    <div id="score" class="value">—</div>
+</div>
+
+</div>
+
+<div class="card">
+    <h3>Today's Analysis</h3>
+
+    <table>
+        <tbody id="details">
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Paper Trades</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Action</th>
+                <th>Entry</th>
+                <th>SL</th>
+                <th>Target</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody id="trades">
+            <tr>
+                <td colspan="6">No paper trades yet.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card paper">
+    PAPER MODE — NO LIVE ORDERS
+</div>
+
+<button onclick="loadData()">Refresh</button>
+
+</main>
+
+<script>
+
+async function loadData() {
+
+    const response = await fetch("/api/data");
+    const data = await response.json();
+
+    const analysis = data.analysis || {};
+
+    document.getElementById("state").textContent =
+        analysis.technical_state ||
+        analysis.state ||
+        "WAIT";
+
+    document.getElementById("price").textContent =
+        analysis.last_close || "—";
+
+    document.getElementById("rsi").textContent =
+        analysis.rsi14 || "—";
+
+    document.getElementById("score").textContent =
+        analysis.score || "—";
+
+    const details = document.getElementById("details");
+
+    details.innerHTML = "";
+
+    Object.entries(analysis).forEach(([key, value]) => {
+
+        details.innerHTML +=
+            "<tr><td>" +
+            key +
+            "</td><td>" +
+            value +
+            "</td></tr>";
+
+    });
+
+    const trades = document.getElementById("trades");
+
+    if (data.trades.length === 0) {
+
+        trades.innerHTML =
+            '<tr><td colspan="6">No paper trades yet.</td></tr>';
+
+    } else {
+
+        trades.innerHTML = data.trades
+            .slice()
+            .reverse()
+            .map(function(trade) {
+
+                return "<tr>" +
+                    "<td>" + (trade.symbol || "") + "</td>" +
+                    "<td>" + (trade.action || trade.side || "") + "</td>" 
++
+                    "<td>" + (trade.entry || trade.entry_price || "") + 
+"</td>" +
+                    "<td>" + (trade.stop_loss || trade.sl || "") + "</td>" 
++
+                    "<td>" + (trade.target || "") + "</td>" +
+                    "<td>" + (trade.status || "") + "</td>" +
+                    "</tr>";
+
+            })
+            .join("");
+    }
+}
+
+loadData();
+
+setInterval(loadData, 30000);
+
+</script>
+
+</body>
+</html>
