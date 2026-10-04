@@ -616,7 +616,7 @@ def monitor_open_trades(api):
                 allocation = float(trade.get("allocation", 
 NORMAL_TRADE_ALLOCATION))
                 rupee_pnl = round(pnl * allocation / entry, 2)
-                capital["available_capital"] += rupee_pnl
+                capital["available_capital"] += allocation + rupee_pnl
                 capital["realized_pnl"] += rupee_pnl
                 save_paper_capital(capital)
                 all_df.loc[mask, "rupee_pnl"] = rupee_pnl
