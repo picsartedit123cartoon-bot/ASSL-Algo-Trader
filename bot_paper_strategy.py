@@ -237,6 +237,13 @@ def get_fno_universe(master):
         "bank_options": bank_options,
         "sensex_futures": sensex_futures,
         "sensex_options": sensex_options,
+        "nifty50": {
+            "name": "NIFTY 50",
+            "symbol": "NIFTY",
+            "exchange": "NSE",
+            "token": "99926000",
+            "instrument_type": "NIFTY50",
+        },
         "near_expiry": near_expiry,
     }
 
@@ -612,6 +619,15 @@ def shortlist_underlyings(universe):
             "instrument_type": "STOCK_FUTURE",
         })
 
+    nifty = universe["nifty50"]
+    result.append({
+        "name": nifty["name"],
+        "symbol": nifty["symbol"],
+        "exchange": nifty["exchange"],
+        "token": nifty["token"],
+        "instrument_type": nifty["instrument_type"],
+    })
+
     for label, frame, instrument_type in [
         ("BANKNIFTY", universe["bank_futures"], "BANKNIFTY_FUTURE"),
         ("SENSEX", universe["sensex_futures"], "SENSEX_FUTURE"),
@@ -637,7 +653,7 @@ def scan_once(api):
     print("ANGEL ONE ALL-F&O PAPER SCANNER")
     print("PAPER MODE: NO LIVE ORDERS")
     print(f"Near expiry: {universe['near_expiry']}")
-    print("Coverage: NSE F&O stocks + BANKNIFTY + SENSEX")
+    print("Coverage: NIFTY 50 + NSE F&O stocks + BANKNIFTY + SENSEX")
     print("Timeframes: 15m trend + 5m entry")
     print("============================================================")
 
