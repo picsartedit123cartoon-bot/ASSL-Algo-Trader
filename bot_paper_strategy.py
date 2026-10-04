@@ -54,6 +54,7 @@ MASTER_FILE = REPORT_DIR / "angel_master.json"
 CANDIDATES_FILE = REPORT_DIR / "fno_candidates.csv"
 TRADES_FILE = REPORT_DIR / "fno_paper_trades.csv"
 STATUS_FILE = REPORT_DIR / "fno_scanner_status.csv"
+CAPITAL_FILE = REPORT_DIR / "paper_capital.json"
 
 # Scanner timing
 POLL_SECONDS = 300
@@ -64,6 +65,9 @@ MARKET_END = dtime(15, 40)
 # Technical strategy
 ATR_STOP_MULT = 1.5
 RISK_REWARD = 2.0
+STARTING_CAPITAL = 50000
+NORMAL_TRADE_ALLOCATION = 10000
+STRONG_NEWS_TRADE_ALLOCATION = 5000
 MAX_OPEN_PAPER_TRADES = 8
 MAX_NEW_TRADES_PER_DAY = 8
 
@@ -533,6 +537,30 @@ def load_open_trades():
     return df[df["status"] == "OPEN_PAPER"].to_dict("records")
 
 
+
+
+def load_paper_capital():
+    if not CAPITAL_FILE.exists():
+        data = {
+            "starting_capital": STARTING_CAPITAL,
+            "available_capital": STARTING_CAPITAL,
+            "realized_pnl": 0.0,
+        }
+        CAPITAL_FILE.write_text(json.dumps(data, indent=2))
+        return data
+    return json.loads(CAPITAL_FILE.read_text())
+
+
+def save_paper_capital(data):
+    CAPITAL_FILE.write_text(json.dumps(data, indent=2))
+    
+
+
+
+
+
+
+
 def monitor_open_trades(api):
     """Monitor paper positions using LTP. No live order is sent."""
     if not TRADES_FILE.exists():
@@ -583,6 +611,21 @@ def monitor_open_trades(api):
             all_df.loc[mask, "last_ltp"] = round(ltp, 2)
             all_df.loc[mask, "pnl_points"] = round(pnl, 2)
             all_df.loc[mask, "status"] = status
+            if status != "OPEN_PAPER":
+                capital = load_paper_capital()
+                allocation = float(trade.get("allocation", 
+NORMAL_TRADE_ALLOCATION))
+                rupee_pnl = round(pnl * allocation / entry, 2)
+                capital["available_capital"] += rupee_pnl
+                capital["realized_pnl"] += rupee_pnl
+                save_paper_capital(capital)
+                all_df.loc[mask, "rupee_pnl"] = rupee_pnl
+                all_df.loc[mask, "remaining_capital"] = round(
+                    capital["available_capital"], 2
+
+                )
+
+
             all_df.loc[mask, "last_checked"] = datetime.now().isoformat(
                 timespec="seconds"
             )
@@ -696,6 +739,7 @@ def scan_once(api):
                 atr_value,
                 u["instrument_type"],
             )
+            trade["allocation"] = NORMAL_TRADE_ALLOCATION
             trade["news"] = news_text
             candidates.append(trade)
 
@@ -742,6 +786,7 @@ def scan_once(api):
                         option_atr,
                         "OPTION",
                     )
+                    option_trade["allocation"] = STRONG_NEWS_TRADE_ALLOCATION
                     option_trade["underlying"] = u["name"]
                     option_trade["news"] = news_text
                     candidates.append(option_trade)
@@ -817,13 +862,23 @@ def main():
                     # cycle so the system does not fill all slots at once.
                     if new_candidates:
                         trade = new_candidates[0]
-                        append_trade(trade)
-                        trades_today += 1
-                        print(
-                            f"PAPER ENTRY: {trade['symbol']} | "
-                            f"{trade['side']} | Entry={trade['entry']} | "
-                            f"SL={trade['stop_loss']} | Target={trade['target']}"
+                        capital = load_paper_capital()
+                        allocation = float(
+                            trade.get("allocation", NORMAL_TRADE_ALLOCATION)
                         )
+
+                        if capital["available_capital"] >= allocation:
+                            capital["available_capital"] -= allocation
+                            save_paper_capital(capital)
+
+                            append_trade(trade)
+                            trades_today += 1
+
+                            print(
+                                f"PAPER ENTRY: {trade['symbol']} | "
+                                f"{trade['side']} | Entry={trade['entry']} | "
+                                f"SL={trade['stop_loss']} | Target={trade['target']}"
+                            )
                 else:
                     print("Open paper-trade limit reached; monitoring only.")
 
